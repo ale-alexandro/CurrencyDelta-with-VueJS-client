@@ -3,6 +3,7 @@ Currency Delta is a test task (oh, really) flask microservice that pulls data fr
   
   - Python
   - Flask
+  - SQLAlchemy
   - Python requests
   - VueJS
 
@@ -11,6 +12,7 @@ Currency Delta is a test task (oh, really) flask microservice that pulls data fr
 ```%url_of_server%/api/getCurrencyList```
 **args**: none
 **return value**: JSON Object with currencies data
+**errors**: none
 **example answer**:
 `{"data": [{"ID": "R01010","ISO_Char_Code": "AUD","Name": "Австралийский доллар"}, ... {"ID": "R01820","ISO_Char_Code": "JPY","Name": "Японская иена"}]}`
 ******
@@ -20,7 +22,15 @@ Currency Delta is a test task (oh, really) flask microservice that pulls data fr
   - ***cur***: Internal Currency ID from cbr.ru. E.g. R01235 is USD
   - ***start***: Start Date in format DD-MM-YYYY 
   - ***end***: End Date in format DD-MM-YYYY 
-    - ***end*** >= ***start***
+***errors***: 
+  - ***Code 1***: Not Found data for date. CRB has no data for the date. Returns date
+    - ```{"error": "1", "date": "01-01-1995"}```
+  - ***Code 2***: Incorrect begin date. 
+    - ```{"error": "2", "date": "31.11.199"}```
+  - ***Code 3***: Incorrect end date. 
+    - ```{"error": "3", "date": "01/10/2020"}```
+  - ***Code 4***: Incorrect(or Nonexistent) CRB Currecy code. 
+    - ```{"error": "4", "date": "R00000"}```
    
   
 **return value**: JSON object with delta, currency value at start date and currency value at end date
@@ -30,17 +40,19 @@ Currency Delta is a test task (oh, really) flask microservice that pulls data fr
 
 
 # How it Works
-When you make request to ```api/getCurrencyList```, service pulls data in XML from cbr [example xml](http://www.cbr.ru/scripts/XML_val.asp?d=0), parse it with [xmltodict](https://pypi.org/project/xmltodict/) to dict, drops all currencies with null ISO Code and send it to you
+When you make request to ```api/getCurrencyList```, firstly service pulls data in XML from cbr [example xml](http://www.cbr.ru/scripts/XML_val.asp?d=0), parse it with [xmltodict](https://pypi.org/project/xmltodict/) to dict, drops all currencies doubles, save it into sqlite db and send it to client. And if the data in the database has already been saved, then the service simply serializes from into JSON and delivers to the client
 
-When you make request to ```api/getCurrencyList```, service pulls data in XML from (cbr.ru)[example xml](http://www.cbr.ru/scripts/XML_dynamic.asp?date_req1=02/03/2001&date_req2=14/03/2001&VAL_NM_RQ=R01235) and if start date != end date retruns delta and currencies for dates. Else, delta is 0 (start date currency equal to end date currency).
-
+When you make request to ```api/getCurrencyDelta```, service checks the database for a currency value for the given date at. If one of the values is missing, it requests it from crb [example xml](http://www.cbr.ru/scripts/XML_dynamic.asp?date_req1=02/03/2001&date_req2=02/03/2001&VAL_NM_RQ=R01235) and saves it to the database. Then it sends the delta between End and Start, and the values for dateStart and dateEnd to the client
 
 ### Installation
 TestTask requires [Node.js](https://nodejs.org/) and [Python](https://www.python.org).
 
-Install the dependencies and start the dev server of service(backend).
+Install the dependencies, deploy sqllite database and start the dev server of service(backend).
 ```bash
 $ python3 -m pip install -r requirements.txt
+$ flask db init 
+$ flask db migrate
+$ flask db upgrate 
 $ flask run
 ```
 Install the dependencies and start the dev server of service(frontend).
@@ -56,8 +68,14 @@ $ npm install
 $ npm run build
 ```
 
-On main branch you have prod version
 To run production
+In %basedir/%app/static
+```bash
+$ cd static
+$ npm install
+$ npm run build
+```
+In %basedir%
 ```bash
 $ python3 -m pip install gunicorn
 $ gunicorn --bind 0.0.0.0:80 CurrencyDelta:app
