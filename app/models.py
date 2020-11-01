@@ -1,9 +1,5 @@
 from app import db
 
-class Vars(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    last_time_checked_currencies = db.Column(db.DateTime, default=0)
-
 class Currency(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255))
