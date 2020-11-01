@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <h1>Разница: {{ delta }} </h1>
+    <h1> {{ delta }} </h1>
     <p>Выберите валюту 
     <select v-model="selected">
       <option v-for="currency in currencies" :value="currency.ID">{{ currency.Name }} ({{ currency.ISO_Char_Code }})</option>
@@ -26,31 +26,49 @@ export default {
   data () {
     return {
       currencies: [],
-      selected: "",
+      selected: "none",
       startDate: format(new Date()),
       startDate_value: "",
       endDate: format(new Date()),
       endDate_value: "",
       currDate: format(new Date()),
-      delta: "0 Рублей"
+      delta: ""
     }
   },
   created() {
     axios.get("/api/getCurrencyList").then(r => {
       this.currencies = r.data.data;
+      this.selected = this.currencies[0].ID
     })
   },
   methods: {
     getFormatDate(date) {
       return new Date(date).getDate() + "-" + new Date(date).getMouth() + "-" + new Date.getFullYear();
     },
+    getErrorText(data) {
+      console.log(data);
+      switch (data.error) {
+        case 1: this.delta = "Ошибка: " + "Нет данных за " + data.date; break;
+        case 2: this.delta = "Ошибка: " + "Не верно указана начальная дата ( " + data.date + ")"; break;
+        case 3: this.delta = "Ошибка: " + "Не верно указана конечная дата ( " + data.date + ")"; break;
+        case 4: this.delta = "Ошибка: " + "Валюты не существует ( " + data.cbr_cur_id + ")"; break;
+      }
+      console.log(this.delta)
+    },
     getDelta() {
       this.delta = "Загружаю..."
       axios.get("/api/getCurrencyDelta?cur="+this.selected+"&start="+this.startDate+"&end="+this.endDate).then(r => {
-          this.delta = r.data.delta + " Рублей";  
-          this.startDate_value = r.data.start + " Рублей";
-          this.endDate_value = r.data.end + " Рублей";
-      }).catch(err => {this.delta = "Ошибка! Нет данных за данный промежуток!"})
+          if (!(r.data.error)){
+            this.delta = "Разница: " + r.data.delta + " Рублей";  
+            this.startDate_value = r.data.start + " Рублей";
+            this.endDate_value = r.data.end + " Рублей";
+          } else {
+            console.log("Handeling error " + r.data.error)
+            this.getErrorText(r.data);
+            this.startDate_value = "";
+            this.endDate_value = "";
+          }    
+      }).catch(err => {this.delta = "Неизвестная ошибка"})
     }
   }
 }
